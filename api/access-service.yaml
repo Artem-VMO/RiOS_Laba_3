@@ -1,0 +1,100 @@
+openapi: 3.1.0
+info:
+  title: Access Service API
+  version: 1.0.0
+  description: Оркестратор контроля доступа и въезда
+servers:
+  - url: http://access-service:8080
+paths:
+  /internal/v1/access/check:
+    post:
+      tags: [internal]
+      summary: Принять решение о въезде (вызывается из iot-gateway)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plate, gateId]
+              properties:
+                plate: { type: string, example: "А123ВС77" }
+                gateId: { type: string, example: "GATE-IN-01" }
+      responses:
+        '200':
+          description: Доступ разрешен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessGranted: { type: boolean, example: true }
+                  message: { type: string }
+        '403':
+          description: Доступ запрещен
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /api/v1/admin/events:
+    get:
+      tags: [public]
+      summary: История въездов (для администратора)
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Список событий
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AccessEvent' }
+
+components:
+  schemas:
+    AccessEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        plate: { type: string }
+        timestamp: { type: string, format: date-time }
+        status: { type: string, enum: [GRANTED, DENIED] }
+    Problem:
+      type: object
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+    GateOpenCommand:
+      type: object
+      description: Команда на открытие шлагбаума, публикуемая в RabbitMQ
+      properties:
+        eventId: { type: string, format: uuid }
+        eventType: { type: string, example: "gate.open.command" }
+        schemaVersion: { type: integer, example: 1 }
+        occurredAt: { type: string, format: date-time }
+        payload:
+          type: object
+          properties:
+            gateId: { type: string }
+            plate: { type: string }
+            reason: { type: string, example: "VALID_PASS" }
+            accessEventId: { type: string, format: uuid }
+    AccessDeniedEvent:
+      type: object
+      description: Событие отказа в доступе
+      properties:
+        eventId: { type: string, format: uuid }
+        eventType: { type: string, example: "access.denied" }
+        occurredAt: { type: string, format: date-time }
+        payload:
+          type: object
+          properties:
+            plate: { type: string }
+            reason: { type: string, enum: [NO_PASS, NO_SPACE, BLACKLIST] }

@@ -1,0 +1,46 @@
+openapi: 3.1.0
+info:
+  title: Parking Service API
+  version: 1.0.0
+  description: Учет свободных мест (в реальности используется gRPC, здесь REST-обертка для документации)
+servers:
+  - url: http://parking-service:8080
+paths:
+  /internal/v1/parking/reserve:
+    post:
+      tags: [internal]
+      summary: Зарезервировать место для автомобиля
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [passId]
+              properties:
+                passId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Место успешно забронировано
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  spotId: { type: string, format: uuid }
+                  ttlSeconds: { type: integer, example: 30 }
+        '409':
+          description: Свободных мест нет
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+components:
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }

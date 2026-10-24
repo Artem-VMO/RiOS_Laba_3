@@ -1,0 +1,96 @@
+openapi: 3.1.0
+info:
+  title: Pass Service API
+  version: 1.0.0
+  description: Управление пропусками на парковку
+servers:
+  - url: http://pass-service:8080
+paths:
+  /api/v1/passes:
+    post:
+      tags: [public]
+      summary: Создать заявку на пропуск
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plate, tariffId]
+              properties:
+                plate: { type: string, example: "А001АА161" }
+                tariffId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Пропуск создан (ожидает оплаты)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pass' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /internal/v1/passes/check:
+    get:
+      tags: [internal]
+      summary: Проверить валидность пропуска (для access-service)
+      parameters:
+        - in: query
+          name: plate
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Пропуск найден и активен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isValid: { type: boolean, example: true }
+                  passId: { type: string, format: uuid }
+        '404':
+          description: Пропуск не найден или неактивен
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+components:
+  schemas:
+    Pass:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        plate: { type: string }
+        status: { type: string, enum: [PENDING, ACTIVE, EXPIRED, CANCELLED] }
+    Problem:
+      type: object
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+    PaymentCompletedEvent:
+      type: object
+      description: Событие, на которое подписан pass-service
+      properties:
+        eventId: { type: string, format: uuid }
+        eventType: { type: string, example: "payment.completed" }
+        schemaVersion: { type: integer, example: 1 }
+        occurredAt: { type: string, format: date-time }
+        payload:
+          type: object
+          properties:
+            paymentId: { type: string, format: uuid }
+            passId: { type: string, format: uuid }
+            amount: { type: number }
+            currency: { type: string }
+  responses:
+    BadRequest:
+      description: Некорректный запрос
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }

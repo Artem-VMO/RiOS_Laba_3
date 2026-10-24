@@ -1,0 +1,49 @@
+openapi: 3.1.0
+info:
+  title: IoT Gateway Service API
+  version: 1.0.0
+  description: Взаимодействие с камерами и шлагбаумами
+servers:
+  - url: http://iot-gateway-service:8080
+paths:
+  /api/v1/camera/events:
+    post:
+      tags: [internal]
+      summary: Прием события от камеры с распознанным номером
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plate, cameraId]
+              properties:
+                plate: { type: string, example: "А123ВС77" }
+                cameraId: { type: string, example: "CAM-ENTRY-1" }
+      responses:
+        '200':
+          description: Событие принято в обработку
+
+components:
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+    GateOpenedEvent:
+      type: object
+      description: Событие, подтверждающее открытие шлагбаума
+      properties:
+        eventId: { type: string, format: uuid }
+        eventType: { type: string, example: "gate.opened" }
+        schemaVersion: { type: integer, example: 1 }
+        occurredAt: { type: string, format: date-time }
+        payload:
+          type: object
+          properties:
+            gateId: { type: string }
+            plate: { type: string }
+            openedAt: { type: string, format: date-time }
